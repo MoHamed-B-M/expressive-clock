@@ -1,0 +1,195 @@
+# Dev pipeline: every push to `dev` produces a signed release APK for ARMv8 (arm64-v8a)
+# and keeps it as a workflow artifact. Nothing is published beyond the artifact.
+name: Dev APK
+
+on:
+  push:
+    branches:
+      - dev
+
+# Read-only: this workflow never writes tags or releases.
+permissions:
+  contents: read
+
+# A newer push to dev supersedes a build that is still running.
+concurrency:
+  group: dev-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ANDROID_COMPILE_SDK: "37"
+  ANDROID_BUILD_TOOLS: "36.0.0"
+
+jobs:
+  build:
+    name: Build release APK (arm64-v8a)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Resolve Android SDK root
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Restore Android SDK package cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ env.ANDROID_SDK_ROOT }}/platforms/android-${{ env.ANDROID_COMPILE_SDK }}
+            ${{ env.ANDROID_SDK_ROOT }}/build-tools/${{ env.ANDROID_BUILD_TOOLS }}
+          key: ${{ runner.os }}-android-sdk-api${{ env.ANDROID_COMPILE_SDK }}-bt${{ env.ANDROID_BUILD_TOOLS }}-v1
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          # Only the platform and build-tools this build needs; setup-android accepts the licences.
+          packages: "platforms;android-${{ env.ANDROID_COMPILE_SDK }} build-tools;${{ env.ANDROID_BUILD_TOOLS }}"
+
+      - name: Restore Gradle caches
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Prepare release signing key
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in SIGNING_KEY KEY_STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing signing secret::Repository secret '$name' is not configured. Add it under Settings > Secrets and variables > Actions."
+              exit 1
+            fi
+          done
+
+          KEYSTORE="$RUNNER_TEMP/expressive-clock-release.jks"
+          printf '%s' "$SIGNING_KEY" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+
+          # Fail here, with a clear error, rather than deep inside R8/signing.
+          keytool -list -keystore "$KEYSTORE" \
+            -storepass:env KEY_STORE_PASSWORD \
+            -alias "$KEY_ALIAS" >/dev/null
+
+      - name: Build release APK (arm64-v8a only)
+        env:
+          # app/build.gradle.kts already reads these four project properties for its
+          # release signing config. ORG_GRADLE_PROJECT_* is Gradle's supported env-var
+          # form of -P, so the secrets stay off the command line and out of the repo.
+          ORG_GRADLE_PROJECT_clockStoreFile: ${{ runner.temp }}/expressive-clock-release.jks
+          ORG_GRADLE_PROJECT_clockStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_clockKeyAlias: ${{ secrets.KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_clockKeyPassword: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease \
+            -PciAbi=arm64-v8a \
+            --no-daemon \
+            --build-cache \
+            --stacktrace \
+            --console=plain
+
+      - name: Verify and stage APK
+        id: apk
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          BUILD_TOOLS="$(ls -d "$SDK_ROOT"/build-tools/* | sort -V | tail -n 1)"
+          AAPT2="$BUILD_TOOLS/aapt2"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+          chmod +x "$AAPT2" "$APKSIGNER" 2>/dev/null || true
+
+          shopt -s nullglob
+          APKS=(app/build/outputs/apk/release/*.apk)
+          if [ "${#APKS[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one release APK, found ${#APKS[@]}."
+            exit 1
+          fi
+          APK="${APKS[0]}"
+
+          # Read the version from the artifact itself so the artifact name cannot drift from it.
+          BADGING="$("$AAPT2" dump badging "$APK")"
+          PACKAGE_LINE="$(printf '%s\n' "$BADGING" | grep -m1 '^package: ' || true)"
+          VERSION_NAME="$(printf '%s\n' "$PACKAGE_LINE" | sed -n "s/.* versionName='\([^']*\)'.*/\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$PACKAGE_LINE" | sed -n "s/.* versionCode='\([^']*\)'.*/\1/p")"
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
+            echo "::error::Could not read versionName/versionCode from $APK."
+            exit 1
+          fi
+
+          # Enforce "ARMv8 only" on the actual package contents. This app currently has no
+          # native libraries, so there are no lib/ entries at all, which is ABI-agnostic and
+          # therefore compliant; if native code is added, this fails on any other ABI.
+          PACKAGED_ABIS="$(unzip -l "$APK" | grep -oE 'lib/[^/]+/' | cut -d/ -f2 | sort -u | paste -sd ',' - || true)"
+          if [ -n "$PACKAGED_ABIS" ] && [ "$PACKAGED_ABIS" != "arm64-v8a" ]; then
+            echo "::error::APK packages native libraries for [$PACKAGED_ABIS]; expected only arm64-v8a."
+            exit 1
+          fi
+
+          # Never publish the debug-signed fallback as a CI artifact.
+          CERT_INFO="$("$APKSIGNER" verify --print-certs "$APK")"
+          printf '%s\n' "$CERT_INFO"
+          if printf '%s\n' "$CERT_INFO" | grep -q 'CN=Android Debug'; then
+            echo "::error::APK is debug-signed; refusing to publish it."
+            exit 1
+          fi
+
+          mkdir -p dist
+          STAGED="dist/expressive-clock-dev-${VERSION_NAME}-arm64-v8a.apk"
+          cp "$APK" "$STAGED"
+          SHA256="$(sha256sum "$STAGED" | cut -d' ' -f1)"
+
+          {
+            echo "path=$STAGED"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "packaged_abis=${PACKAGED_ABIS:-none}"
+            echo "sha256=$SHA256"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload dev APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: expressive-clock-dev-arm64-v8a
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+
+      - name: Write job summary
+        run: |
+          set -euo pipefail
+          {
+            echo "## Dev APK built"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Version | \`${{ steps.apk.outputs.version_name }}\` (versionCode \`${{ steps.apk.outputs.version_code }}\`) |"
+            echo "| Native ABIs | \`${{ steps.apk.outputs.packaged_abis }}\` |"
+            echo "| SHA-256 | \`${{ steps.apk.outputs.sha256 }}\` |"
+            echo "| Artifact | \`expressive-clock-dev-arm64-v8a\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove temporary keystore
+        if: always()
+        run: |
+          set -euo pipefail
+          rm -f "$RUNNER_TEMP/expressive-clock-release.jks"
