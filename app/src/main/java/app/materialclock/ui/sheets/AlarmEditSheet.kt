@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import app.materialclock.core.Alarm
 import app.materialclock.data.WeekStart
 import app.materialclock.data.order
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.theme.Numerals
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -199,6 +201,8 @@ fun AlarmEditSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val soundBounce = rememberBounceInteractionSource()
+                val vibrateBounce = rememberBounceInteractionSource()
                 FilledTonalButton(
                     onClick = {
                         ringtonePicker.launch(
@@ -214,7 +218,8 @@ fun AlarmEditSheet(
                         )
                     },
                     contentPadding = PaddingValues(horizontal = 18.dp),
-                    modifier = Modifier.weight(1f).height(ROW_H),
+                    interactionSource = soundBounce,
+                    modifier = Modifier.weight(1f).height(ROW_H).bounceClick(soundBounce),
                 ) {
                     Icon(Icons.Outlined.MusicNote, contentDescription = null, Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
@@ -231,7 +236,8 @@ fun AlarmEditSheet(
                     checked = vibrate,
                     onCheckedChange = { vibrate = it },
                     shapes = IconButtonDefaults.toggleableShapes(),
-                    modifier = Modifier.size(ROW_H),
+                    interactionSource = vibrateBounce,
+                    modifier = Modifier.size(ROW_H).bounceClick(vibrateBounce),
                 ) {
                     Icon(
                         Icons.Outlined.Vibration,
@@ -249,6 +255,9 @@ fun AlarmEditSheet(
                 Modifier.fillMaxWidth().padding(horizontal = EDGE),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                val deleteBounce = rememberBounceInteractionSource()
+                val cancelBounce = rememberBounceInteractionSource()
+                val saveBounce = rememberBounceInteractionSource()
                 if (onDelete != null) {
                     FilledTonalButton(
                         onClick = { onDelete(initial.id); onDismiss() },
@@ -257,7 +266,8 @@ fun AlarmEditSheet(
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp),
-                        modifier = Modifier.weight(1f).height(ROW_H),
+                        interactionSource = deleteBounce,
+                        modifier = Modifier.weight(1f).height(ROW_H).bounceClick(deleteBounce),
                     ) {
                         Icon(Icons.Outlined.Delete, contentDescription = null, Modifier.size(20.dp))
                     }
@@ -266,14 +276,17 @@ fun AlarmEditSheet(
                 OutlinedButton(
                     onClick = { discard = true; onDismiss() },
                     contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier.weight(1.2f).height(ROW_H),
+                    interactionSource = cancelBounce,
+                    modifier = Modifier.weight(1.2f).height(ROW_H).bounceClick(cancelBounce),
                 ) {
                     Text("Cancel", style = MaterialTheme.typography.labelLargeEmphasized)
                 }
                 Button(
                     onClick = { commitAndClose() },
                     contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier.weight(if (onDelete != null) 1.8f else 2.4f).height(ROW_H),
+                    interactionSource = saveBounce,
+                    modifier = Modifier.weight(if (onDelete != null) 1.8f else 2.4f).height(ROW_H)
+                        .bounceClick(saveBounce),
                 ) {
                     Icon(Icons.Rounded.Check, contentDescription = null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
@@ -338,6 +351,7 @@ private fun WideTimeField(state: TimePickerState) {
 
 @Composable
 private fun FieldPill(text: String, selected: Boolean, onClick: () -> Unit) {
+    val bounce = rememberBounceInteractionSource()
     Surface(
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
@@ -346,6 +360,8 @@ private fun FieldPill(text: String, selected: Boolean, onClick: () -> Unit) {
         },
         shape = CircleShape,
         onClick = onClick,
+        interactionSource = bounce,
+        modifier = Modifier.bounceClick(bounce),
     ) {
         Box(Modifier.padding(horizontal = 22.dp, vertical = FIELD_PAD_V)) {
             Numerals(
@@ -365,8 +381,9 @@ private fun FieldPill(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun MeridiemChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val bounce = rememberBounceInteractionSource()
     Surface(
-        modifier = Modifier.height(MERIDIEM_CHIP_H),
+        modifier = Modifier.height(MERIDIEM_CHIP_H).bounceClick(bounce),
         color = if (selected) {
             MaterialTheme.colorScheme.tertiaryContainer
         } else {
@@ -379,6 +396,7 @@ private fun MeridiemChip(text: String, selected: Boolean, onClick: () -> Unit) {
         },
         shape = CircleShape,
         onClick = onClick,
+        interactionSource = bounce,
     ) {
         Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
             Text(text, style = MaterialTheme.typography.labelLargeEmphasized)
@@ -447,11 +465,13 @@ private fun DayToggles(order: List<DayOfWeek>, selected: Set<DayOfWeek>, onToggl
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         order.forEach { day ->
+            val bounce = rememberBounceInteractionSource()
             ToggleButton(
                 checked = day in selected,
                 onCheckedChange = { onToggle(day) },
                 contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.weight(1f).height(52.dp),
+                interactionSource = bounce,
+                modifier = Modifier.weight(1f).height(52.dp).bounceClick(bounce),
             ) {
                 Text(
                     day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),

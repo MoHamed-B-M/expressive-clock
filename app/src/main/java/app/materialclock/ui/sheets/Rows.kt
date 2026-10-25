@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 
 /**
  * The three row shapes every settings sheet in the app is built from.
@@ -76,7 +78,14 @@ fun <T> ChoiceRow(
     if (open) {
         AlertDialog(
             onDismissRequest = { open = false },
-            confirmButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
+            confirmButton = {
+                val bounce = rememberBounceInteractionSource()
+                TextButton(
+                    onClick = { open = false },
+                    interactionSource = bounce,
+                    modifier = Modifier.bounceClick(bounce),
+                ) { Text("Cancel") }
+            },
             title = { Text(title) },
             text = {
                 Column(Modifier.selectableGroup()) {

@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 
 /**
  * The two pickers the widget editor is built from.
@@ -96,11 +98,13 @@ fun <T> OptionGroup(
                     i == options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 }
+                val bounce = rememberBounceInteractionSource()
                 ToggleButton(
                     checked = option == value,
                     onCheckedChange = { if (it) onSelect(option) },
                     shapes = shapes,
                     contentPadding = PaddingValues(horizontal = 4.dp),
+                    interactionSource = bounce,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -108,7 +112,8 @@ fun <T> OptionGroup(
                         // hardcodes says "independent on/off". These are mutually exclusive, so
                         // they are radio buttons as far as anything reading the screen is
                         // concerned.
-                        .semantics { role = Role.RadioButton },
+                        .semantics { role = Role.RadioButton }
+                        .bounceClick(bounce),
                 ) {
                     Text(
                         optionLabel(option),

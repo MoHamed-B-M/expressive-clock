@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.materialclock.BuildConfig
 import app.materialclock.R
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 
 /**
  * The About destination, reached from Settings.
@@ -50,6 +52,7 @@ fun AboutScreen(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val bounce = rememberBounceInteractionSource()
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -113,9 +116,11 @@ fun AboutScreen(
 
         FilledTonalButton(
             onClick = onBack,
+            interactionSource = bounce,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(56.dp)
+                .bounceClick(bounce),
             shape = MaterialTheme.shapes.extraLarge,
         ) {
             Icon(

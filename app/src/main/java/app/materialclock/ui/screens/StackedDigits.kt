@@ -23,6 +23,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.theme.ClockFace
 import app.materialclock.ui.theme.Numerals
 
@@ -194,9 +196,14 @@ fun WidePill(
      */
     contentAlpha: Float = 1f,
 ) {
+    val bounce = rememberBounceInteractionSource()
     androidx.compose.material3.Button(
         onClick = onClick,
-        modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier).height(height),
+        interactionSource = bounce,
+        modifier = modifier
+            .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
+            .height(height)
+            .bounceClick(bounce),
         shape = CircleShape,
         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
             containerColor = if (outlined) Color.Transparent else container,

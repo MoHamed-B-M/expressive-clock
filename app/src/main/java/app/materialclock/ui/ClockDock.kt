@@ -217,17 +217,20 @@ private fun PlusButton(visible: Boolean, label: String, onClick: () -> Unit) {
     )
     if (grow <= 0.001f) return
 
+    val bounce = rememberBounceInteractionSource()
     Layout(
         content = {
             FloatingActionButton(
                 onClick = onClick,
+                interactionSource = bounce,
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 // 32 dp on a 64 dp button is a circle; 22 dp is the resting squircle.
                 shape = RoundedCornerShape(lerp(FAB_SIZE / 2, FAB_CORNER, grow)),
                 modifier = Modifier
                     .size(FAB_SIZE)
-                    .graphicsLayer { scaleX = grow; scaleY = grow },
+                    .graphicsLayer { scaleX = grow; scaleY = grow }
+                    .bounceClick(bounce),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,

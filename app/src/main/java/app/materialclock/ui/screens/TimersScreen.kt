@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import app.materialclock.core.ClockTimer
 import app.materialclock.core.TimerState
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.theme.ClockFace
 import app.materialclock.ui.theme.Numerals
 import java.time.Duration
@@ -237,13 +239,16 @@ private fun KeyBox(
     label: String,
     content: @Composable () -> Unit,
 ) {
+    val bounce = rememberBounceInteractionSource()
     Surface(
         onClick = onClick,
+        interactionSource = bounce,
         color = container,
         shape = CircleShape,
         modifier = modifier
             .height(58.dp)
-            .clearAndSetSemantics { contentDescription = label },
+            .clearAndSetSemantics { contentDescription = label }
+            .bounceClick(bounce),
     ) {
         Box(contentAlignment = Alignment.Center) { content() }
     }

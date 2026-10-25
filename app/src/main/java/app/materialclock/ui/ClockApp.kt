@@ -167,7 +167,12 @@ fun ClockApp(startTab: String? = null, vm: ClockViewModel = viewModel()) {
                             // The gear exists only where it was asked for: the Alarms tab. The
                             // other tabs keep their own settings sheet on the title, unchanged.
                             if (tab == Tab.ALARMS) {
-                                IconButton(onClick = { screen = AppScreen.SETTINGS }) {
+                                val gearBounce = rememberBounceInteractionSource()
+                                IconButton(
+                                    onClick = { screen = AppScreen.SETTINGS },
+                                    interactionSource = gearBounce,
+                                    modifier = Modifier.bounceClick(gearBounce),
+                                ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Settings,
                                         contentDescription = "Settings",
@@ -392,6 +397,7 @@ fun ClockApp(startTab: String? = null, vm: ClockViewModel = viewModel()) {
  */
 @Composable
 private fun BackTopBar(title: String, onBack: () -> Unit) {
+    val bounce = rememberBounceInteractionSource()
     TopAppBar(
         title = {
             Text(
@@ -400,7 +406,11 @@ private fun BackTopBar(title: String, onBack: () -> Unit) {
             )
         },
         navigationIcon = {
-            IconButton(onClick = onBack) {
+            IconButton(
+                onClick = onBack,
+                interactionSource = bounce,
+                modifier = Modifier.bounceClick(bounce),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",

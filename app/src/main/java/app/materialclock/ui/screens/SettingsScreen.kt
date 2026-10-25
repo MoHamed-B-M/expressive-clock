@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.materialclock.BuildConfig
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 
 /**
  * The Settings destination reached from the gear on the Alarms tab.
@@ -119,9 +121,11 @@ private fun SettingsCard(
     onClick: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val bounce = rememberBounceInteractionSource()
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        interactionSource = bounce,
+        modifier = Modifier.fillMaxWidth().bounceClick(bounce),
         shape = MaterialTheme.shapes.extraLarge,
         color = scheme.surfaceContainer,
     ) {

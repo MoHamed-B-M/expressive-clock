@@ -77,6 +77,8 @@ import app.materialclock.data.OutlineStyle
 import app.materialclock.data.PillOrientation
 import app.materialclock.data.WidgetConfig
 import app.materialclock.data.WidgetPreset
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.sheets.SwitchRow
 import app.materialclock.ui.theme.Palette
 
@@ -267,15 +269,19 @@ fun WidgetConfigScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                val cancelBounce = rememberBounceInteractionSource()
+                val saveBounce = rememberBounceInteractionSource()
                 OutlinedButton(
                     onClick = { if (custom) custom = false else onCancel() },
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    interactionSource = cancelBounce,
+                    modifier = Modifier.weight(1f).height(56.dp).bounceClick(cancelBounce),
                 ) {
                     Text(if (custom) "Back" else "Cancel")
                 }
                 Button(
                     onClick = { onSave(config) },
-                    modifier = Modifier.weight(1.6f).height(56.dp),
+                    interactionSource = saveBounce,
+                    modifier = Modifier.weight(1.6f).height(56.dp).bounceClick(saveBounce),
                 ) {
                     Text(if (isNew) "Add widget" else "Save")
                 }

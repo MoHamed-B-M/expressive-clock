@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.materialclock.BuildConfig
+import app.materialclock.ui.bounceClick
+import app.materialclock.ui.rememberBounceInteractionSource
 
 /**
  * The About section: the things an app needs before it can be given to somebody else.
@@ -68,7 +70,14 @@ fun AboutRows() {
     open?.let { page ->
         AlertDialog(
             onDismissRequest = { open = null },
-            confirmButton = { TextButton(onClick = { open = null }) { Text("Close") } },
+            confirmButton = {
+                val bounce = rememberBounceInteractionSource()
+                TextButton(
+                    onClick = { open = null },
+                    interactionSource = bounce,
+                    modifier = Modifier.bounceClick(bounce),
+                ) { Text("Close") }
+            },
             title = { Text(page.title) },
             text = {
                 Column(
