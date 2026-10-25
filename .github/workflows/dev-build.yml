@@ -1,5 +1,7 @@
-# Dev pipeline: every push to `dev` produces a signed release APK for ARMv8 (arm64-v8a)
-# and keeps it as a workflow artifact. Nothing is published beyond the artifact.
+# Dev pipeline: every push to `dev` produces a release APK for ARMv8 (arm64-v8a) and keeps it as a
+# workflow artifact. It is release-signed when the four signing secrets are configured; otherwise it
+# falls back to the debug key (with a warning) so the dev build still verifies the code. Nothing is
+# published beyond the artifact.
 name: Dev APK
 
 on:
@@ -76,12 +78,28 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
+
+          missing=0
+          present=0
           for name in SIGNING_KEY KEY_STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!name:-}" ]; then
-              echo "::error title=Missing signing secret::Repository secret '$name' is not configured. Add it under Settings > Secrets and variables > Actions."
-              exit 1
+              missing=$((missing + 1))
+            else
+              present=$((present + 1))
             fi
           done
+
+          # A half-configured key is a mistake, not a reason to silently fall back.
+          if [ "$missing" -ne 0 ] && [ "$present" -ne 0 ]; then
+            echo "::error title=Incomplete signing configuration::Some signing secrets are set but not all four (SIGNING_KEY, KEY_STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD). Configure all four or none."
+            exit 1
+          fi
+
+          if [ "$missing" -eq 4 ]; then
+            echo "::warning title=Release signing not configured::No signing secrets found, so this dev APK will be signed with the debug key. Add SIGNING_KEY, KEY_STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD for a release-signed artifact."
+            echo "RELEASE_SIGNED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
 
           KEYSTORE="$RUNNER_TEMP/expressive-clock-release.jks"
           printf '%s' "$SIGNING_KEY" | base64 --decode > "$KEYSTORE"
@@ -92,15 +110,18 @@ jobs:
             -storepass:env KEY_STORE_PASSWORD \
             -alias "$KEY_ALIAS" >/dev/null
 
+          # app/build.gradle.kts already reads these four project properties for its release
+          # signing config. ORG_GRADLE_PROJECT_* is Gradle's supported env-var form of -P, so
+          # the secrets stay off the command line and out of the repo.
+          {
+            echo "ORG_GRADLE_PROJECT_clockStoreFile=$KEYSTORE"
+            echo "ORG_GRADLE_PROJECT_clockStorePassword=$KEY_STORE_PASSWORD"
+            echo "ORG_GRADLE_PROJECT_clockKeyAlias=$KEY_ALIAS"
+            echo "ORG_GRADLE_PROJECT_clockKeyPassword=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "RELEASE_SIGNED=true" >> "$GITHUB_ENV"
+
       - name: Build release APK (arm64-v8a only)
-        env:
-          # app/build.gradle.kts already reads these four project properties for its
-          # release signing config. ORG_GRADLE_PROJECT_* is Gradle's supported env-var
-          # form of -P, so the secrets stay off the command line and out of the repo.
-          ORG_GRADLE_PROJECT_clockStoreFile: ${{ runner.temp }}/expressive-clock-release.jks
-          ORG_GRADLE_PROJECT_clockStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_clockKeyAlias: ${{ secrets.KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_clockKeyPassword: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
           chmod +x ./gradlew
@@ -148,16 +169,26 @@ jobs:
             exit 1
           fi
 
-          # Never publish the debug-signed fallback as a CI artifact.
+          # When release signing is configured the artifact must be release-signed. Without
+          # secrets the dev build is explicitly allowed to carry the debug key, but never
+          # silently: the file name and the job summary both say so.
           CERT_INFO="$("$APKSIGNER" verify --print-certs "$APK")"
           printf '%s\n' "$CERT_INFO"
           if printf '%s\n' "$CERT_INFO" | grep -q 'CN=Android Debug'; then
-            echo "::error::APK is debug-signed; refusing to publish it."
-            exit 1
+            if [ "${RELEASE_SIGNED:-false}" = "true" ]; then
+              echo "::error::Release signing was configured but the APK is debug-signed."
+              exit 1
+            fi
+            echo "::warning title=Debug-signed dev APK::This artifact is signed with the Android debug key and must not be distributed."
+            SIGNING_STATE="debug"
+            FILE_SUFFIX="-debug"
+          else
+            SIGNING_STATE="release"
+            FILE_SUFFIX=""
           fi
 
           mkdir -p dist
-          STAGED="dist/expressive-clock-dev-${VERSION_NAME}-arm64-v8a.apk"
+          STAGED="dist/expressive-clock-dev-${VERSION_NAME}-arm64-v8a${FILE_SUFFIX}.apk"
           cp "$APK" "$STAGED"
           SHA256="$(sha256sum "$STAGED" | cut -d' ' -f1)"
 
@@ -166,6 +197,7 @@ jobs:
             echo "version_name=$VERSION_NAME"
             echo "version_code=$VERSION_CODE"
             echo "packaged_abis=${PACKAGED_ABIS:-none}"
+            echo "signing=$SIGNING_STATE"
             echo "sha256=$SHA256"
           } >> "$GITHUB_OUTPUT"
 
@@ -186,6 +218,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Version | \`${{ steps.apk.outputs.version_name }}\` (versionCode \`${{ steps.apk.outputs.version_code }}\`) |"
             echo "| Native ABIs | \`${{ steps.apk.outputs.packaged_abis }}\` |"
+            echo "| Signing | \`${{ steps.apk.outputs.signing }}\` |"
             echo "| SHA-256 | \`${{ steps.apk.outputs.sha256 }}\` |"
             echo "| Artifact | \`expressive-clock-dev-arm64-v8a\` |"
           } >> "$GITHUB_STEP_SUMMARY"
