@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +62,7 @@ fun SwitchRow(
  * scrolling menu inside a draggable sheet fights the sheet's own gesture. The spec's own guidance
  * for a short, mutually exclusive set is exactly this.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun <T> ChoiceRow(
     title: String,
@@ -83,6 +86,7 @@ fun <T> ChoiceRow(
                 TextButton(
                     onClick = { open = false },
                     interactionSource = bounce,
+                    shapes = ButtonDefaults.shapes(),
                     modifier = Modifier.bounceClick(bounce),
                 ) { Text("Cancel") }
             },

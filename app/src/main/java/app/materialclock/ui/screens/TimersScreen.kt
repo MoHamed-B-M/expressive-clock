@@ -22,7 +22,10 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -256,6 +259,7 @@ private fun KeyBox(
 
 /* ── Running ───────────────────────────────────────────────────────────────────────────────── */
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RunningTimer(
     timer: ClockTimer,
@@ -329,25 +333,29 @@ private fun RunningTimer(
         }
         Spacer(Modifier.weight(1f))
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) {
-                WidePill(
-                    text = if (running) "Pause" else "Resume",
-                    icon = if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    onClick = onPauseResume,
-                    height = 78.dp,
-                )
-            }
-            Box(Modifier.weight(1f)) {
-                WidePill(
-                    text = "+10s",
-                    icon = Icons.Rounded.Add,
-                    onClick = onAddTen,
-                    height = 78.dp,
-                    container = MaterialTheme.colorScheme.secondaryContainer,
-                    content = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
+        ButtonGroup(
+            modifier = Modifier.fillMaxWidth(),
+            overflowIndicator = { menuState ->
+                ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+            },
+        ) {
+            clickableItem(
+                onClick = onPauseResume,
+                label = if (running) "Pause" else "Resume",
+                icon = {
+                    Icon(
+                        imageVector = if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                    )
+                },
+                weight = 1f,
+            )
+            clickableItem(
+                onClick = onAddTen,
+                label = "+10s",
+                icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                weight = 1f,
+            )
         }
         Spacer(Modifier.height(8.dp))
         WidePill(

@@ -27,11 +27,12 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,8 +78,6 @@ import app.materialclock.data.OutlineStyle
 import app.materialclock.data.PillOrientation
 import app.materialclock.data.WidgetConfig
 import app.materialclock.data.WidgetPreset
-import app.materialclock.ui.bounceClick
-import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.sheets.SwitchRow
 import app.materialclock.ui.theme.Palette
 
@@ -91,6 +90,7 @@ import app.materialclock.ui.theme.Palette
  * times three layouts, and no amount of naming makes "Clover, 8 leaf, Roman, follow the shape,
  * turned" predictable. Seeing it is the only honest way to choose it.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun WidgetConfigScreen(
     initial: WidgetConfig,
@@ -265,26 +265,22 @@ fun WidgetConfigScreen(
             }
             }
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ButtonGroup(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                overflowIndicator = { menuState ->
+                    ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                },
             ) {
-                val cancelBounce = rememberBounceInteractionSource()
-                val saveBounce = rememberBounceInteractionSource()
-                OutlinedButton(
+                clickableItem(
                     onClick = { if (custom) custom = false else onCancel() },
-                    interactionSource = cancelBounce,
-                    modifier = Modifier.weight(1f).height(56.dp).bounceClick(cancelBounce),
-                ) {
-                    Text(if (custom) "Back" else "Cancel")
-                }
-                Button(
+                    label = if (custom) "Back" else "Cancel",
+                    weight = 1f,
+                )
+                clickableItem(
                     onClick = { onSave(config) },
-                    interactionSource = saveBounce,
-                    modifier = Modifier.weight(1.6f).height(56.dp).bounceClick(saveBounce),
-                ) {
-                    Text(if (isNew) "Add widget" else "Save")
-                }
+                    label = if (isNew) "Add widget" else "Save",
+                    weight = 1.6f,
+                )
             }
         }
     }

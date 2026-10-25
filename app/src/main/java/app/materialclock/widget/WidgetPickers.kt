@@ -3,11 +3,9 @@ package app.materialclock.widget
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,10 +14,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
@@ -29,14 +28,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.materialclock.ui.bounceClick
-import app.materialclock.ui.rememberBounceInteractionSource
 
 /**
  * The two pickers the widget editor is built from.
@@ -69,14 +64,14 @@ private val CAROUSEL_GAP = 8.dp
 /**
  * A single-choice **connected** button group.
  *
- * `ToggleButton` carries the checked state into both the fill and the shape morph, which is what
- * the spec asks a selected button in a group to do. The leading, middle and trailing shape sets
- * differ (round on the outside of the group, square where two buttons meet), so the row reads as
- * one control rather than as three separate pills.
+ * The official [ButtonGroup] plus [androidx.compose.material3.ButtonGroupScope.toggleableItem]
+ * replaces the hand-assembled `Row` of `ToggleButton`s: the group owns the connected geometry,
+ * the selection semantics and the chain-reaction width animation when an item is pressed.
  *
- * `selectableGroup()` is supplied by hand because `ButtonGroup` and its shapes ship no semantics at
- * all; without it a screen reader announces N unrelated toggles instead of one set of choices.
+ * `toggleableItem` labels are the option names; the group overflows into a menu automatically if
+ * they do not all fit, which is the documented behaviour for this component.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun <T> OptionGroup(
     label: String,
@@ -87,42 +82,19 @@ fun <T> OptionGroup(
 ) {
     Column(Modifier.padding(horizontal = CAROUSEL_EDGE).padding(top = ROW_GAP / 2, bottom = ROW_GAP / 2)) {
         PickerLabel(label)
-        Row(
-            modifier = Modifier.fillMaxWidth().selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ButtonGroup(
+            modifier = Modifier.fillMaxWidth(),
+            overflowIndicator = { menuState ->
+                ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+            },
         ) {
-            options.forEachIndexed { i, option ->
-                val shapes = when {
-                    options.size == 1 -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                    i == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    i == options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                }
-                val bounce = rememberBounceInteractionSource()
-                ToggleButton(
+            options.forEach { option ->
+                toggleableItem(
                     checked = option == value,
+                    label = optionLabel(option),
                     onCheckedChange = { if (it) onSelect(option) },
-                    shapes = shapes,
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    interactionSource = bounce,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        // Role.Tab is wrong here, and the Role.Checkbox that ToggleButton
-                        // hardcodes says "independent on/off". These are mutually exclusive, so
-                        // they are radio buttons as far as anything reading the screen is
-                        // concerned.
-                        .semantics { role = Role.RadioButton }
-                        .bounceClick(bounce),
-                ) {
-                    Text(
-                        optionLabel(option),
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                    )
-                }
+                    weight = 1f,
+                )
             }
         }
     }

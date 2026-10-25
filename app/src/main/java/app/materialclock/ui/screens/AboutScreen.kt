@@ -18,6 +18,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +47,7 @@ import app.materialclock.ui.rememberBounceInteractionSource
  * large tonal button repeats it at the bottom of the scroll, and [androidx.activity.compose.BackHandler]
  * in the app shell makes the system gesture agree with both.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AboutScreen(
     contentPadding: PaddingValues,
@@ -121,7 +124,7 @@ fun AboutScreen(
                 .fillMaxWidth()
                 .height(56.dp)
                 .bounceClick(bounce),
-            shape = MaterialTheme.shapes.extraLarge,
+            shapes = ButtonDefaults.shapes(),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,

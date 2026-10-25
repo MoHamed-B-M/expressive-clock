@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -23,6 +25,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.materialclock.ui.ButtonWithAnimatedShape
 import app.materialclock.ui.bounceClick
 import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.theme.ClockFace
@@ -160,6 +163,7 @@ private fun ColonDots(color: Color) {
 /** Measured off the render's Pause button. */
 const val PILL_HEIGHT_DP = 136f
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun WidePill(
     text: String,
@@ -197,15 +201,19 @@ fun WidePill(
     contentAlpha: Float = 1f,
 ) {
     val bounce = rememberBounceInteractionSource()
-    androidx.compose.material3.Button(
+    ButtonWithAnimatedShape(
         onClick = onClick,
         interactionSource = bounce,
         modifier = modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .height(height)
             .bounceClick(bounce),
-        shape = CircleShape,
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+        shapes = ButtonDefaults.shapes(
+            // Keep the concept's fully round resting pill; the pressed state morphs its corners.
+            shape = CircleShape,
+            pressedShape = MaterialTheme.shapes.extraLarge,
+        ),
+        colors = ButtonDefaults.buttonColors(
             containerColor = if (outlined) Color.Transparent else container,
             contentColor = content,
         ),

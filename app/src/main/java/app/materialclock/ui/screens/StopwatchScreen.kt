@@ -22,6 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -130,8 +134,9 @@ fun StopwatchScreen(
  *  1. **Expand.** The pill grows from its content width to the full row on the expressive spatial
  *     spring. Its shape is already fully round, so growing the width *is* the morph; a small pill
  *     becomes a wide one with no corner interpolation to get wrong.
- *  2. **Split.** Only once it has arrived does the three-button row cross-fade in, with its 6 dp
- *     gaps opening from nothing. So the wide pill is seen to divide rather than to be replaced.
+ *  2. **Split.** Only once it has arrived does the official `ButtonGroup` of Lap/Reset/Start
+ *     cross-fade in, bringing its connected geometry and press-time neighbor squish. So the wide
+ *     pill is seen to divide rather than to be replaced.
  *
  * The delay on phase 2 is what sequences them; running both on one curve reads as a dissolve.
  *
@@ -141,6 +146,7 @@ fun StopwatchScreen(
  * times. Fixing the height instead means nothing below the readout ever moves, and it makes the lap
  * band a constant, the same on a fresh screen as on a full one.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StopwatchControls(
     idle: Boolean,
@@ -181,26 +187,6 @@ private fun StopwatchControls(
     // The spring overshoots past 1 on the way in, which is wanted for the width but would push the
     // interpolation out of range.
     val e = expand.coerceIn(0f, 1f)
-
-    val startStop: @Composable (Boolean) -> Unit = { compact ->
-        WidePill(
-            text = if (running) "Stop" else "Start",
-            icon = if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            onClick = onToggle,
-            container = if (running) {
-                MaterialTheme.colorScheme.tertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            },
-            content = if (running) {
-                MaterialTheme.colorScheme.onTertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            },
-            height = ROW_HEIGHT,
-            compact = compact,
-        )
-    }
 
     SubcomposeLayout(
         Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 20.dp),
@@ -274,22 +260,31 @@ private fun StopwatchControls(
 
         val trio = if (split > 0f) {
             subcompose("trio") {
-                Box(Modifier.graphicsLayer { alpha = split }) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(GAP * split)) {
-                        Box(Modifier.weight(1f)) {
-                            WidePill(text = "Lap", onClick = onLap, height = ROW_HEIGHT, compact = true)
-                        }
-                        Box(Modifier.weight(1f)) {
-                            WidePill(
-                                text = "Reset",
-                                onClick = onReset,
-                                outlined = true,
-                                content = MaterialTheme.colorScheme.onSurface,
-                                height = ROW_HEIGHT,
-                                compact = true,
-                            )
-                        }
-                        Box(Modifier.weight(1f)) { startStop(true) }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = split },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ButtonGroup(
+                        modifier = Modifier.fillMaxWidth(),
+                        overflowIndicator = { menuState ->
+                            ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                        },
+                    ) {
+                        clickableItem(onClick = onLap, label = "Lap", weight = 1f)
+                        clickableItem(onClick = onReset, label = "Reset", weight = 1f)
+                        clickableItem(
+                            onClick = onToggle,
+                            label = if (running) "Stop" else "Start",
+                            icon = {
+                                Icon(
+                                    imageVector = if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                )
+                            },
+                            weight = 1f,
+                        )
                     }
                 }
             }.first().measure(Constraints.fixed(full, h))
@@ -318,9 +313,7 @@ private val STACK_GAP = 35.dp
 /** Shared so the Start button can be measured against a row drawn at the same size. */
 private val READOUT_CAP = 66.dp
 
-private val GAP = 6.dp
 private val ROW_HEIGHT = 56.dp
-
 /**
  * Lap rows are deliberately shorter than a list item usually is. Every dp here buys list, and the
  * row carries three short strings (an index badge, a split and a total), none of which needs the

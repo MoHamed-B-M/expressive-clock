@@ -24,21 +24,18 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledIconToggleButton
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TimePickerSelectionMode
 import androidx.compose.material3.TimePickerState
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -86,7 +83,7 @@ import java.util.Locale
  * away work because you dismissed it the wrong way is a trap. Cancel is the explicit discard, and
  * it is the only one.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AlarmEditSheet(
     initial: Alarm,
@@ -192,18 +189,18 @@ fun AlarmEditSheet(
             )
 
             Spacer(Modifier.height(10.dp))
-            // Sound and vibrate are one decision (how this alarm gets your attention), so they
-            // are one line. Both sit on the same [EDGE] as the field above; the previous version
-            // used a ListItem for the sound, whose own 16 dp inset put it 8 dp out of line with
-            // everything else on the sheet.
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = EDGE),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            // Sound and vibrate are one decision (how this alarm gets your attention), so they are
+            // one connected button group on the same [EDGE] as the field above. The group owns the
+            // neighbor-squish animation and the connected geometry; the sound item opens the
+            // ringtone picker, while the vibrate item is a toggle.
+            val soundLabel = ringtoneName(soundUri)
+            ButtonGroup(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = EDGE),
+                overflowIndicator = { menuState ->
+                    ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                },
             ) {
-                val soundBounce = rememberBounceInteractionSource()
-                val vibrateBounce = rememberBounceInteractionSource()
-                FilledTonalButton(
+                clickableItem(
                     onClick = {
                         ringtonePicker.launch(
                             Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
@@ -217,81 +214,48 @@ fun AlarmEditSheet(
                                 )
                         )
                     },
-                    contentPadding = PaddingValues(horizontal = 18.dp),
-                    interactionSource = soundBounce,
-                    modifier = Modifier.weight(1f).height(ROW_H).bounceClick(soundBounce),
-                ) {
-                    Icon(Icons.Outlined.MusicNote, contentDescription = null, Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        ringtoneName(soundUri),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelLargeEmphasized,
-                    )
-                }
-                // State as shape, not only fill: the expressive toggle goes round → squircle when
-                // it is on, so it reads without relying on colour.
-                FilledIconToggleButton(
+                    label = soundLabel,
+                    icon = { Icon(Icons.Outlined.MusicNote, contentDescription = null) },
+                    weight = 1.5f,
+                )
+                toggleableItem(
                     checked = vibrate,
+                    label = "Vibrate",
                     onCheckedChange = { vibrate = it },
-                    shapes = IconButtonDefaults.toggleableShapes(),
-                    interactionSource = vibrateBounce,
-                    modifier = Modifier.size(ROW_H).bounceClick(vibrateBounce),
-                ) {
-                    Icon(
-                        Icons.Outlined.Vibration,
-                        contentDescription = if (vibrate) "Vibrate on" else "Vibrate off",
-                    )
-                }
+                    icon = { Icon(Icons.Outlined.Vibration, contentDescription = null) },
+                    weight = 1f,
+                )
             }
 
             Spacer(Modifier.height(18.dp))
-            // Same shape, different colour and width, which is the spec's "do" for a group of
-            // buttons, but the colour now says what each one *does*. An earlier version used
-            // `ButtonGroup`'s `clickableItem`, which renders every item identically and offers no
-            // colour parameter, so Delete and Save looked like the same decision.
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = EDGE),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // One official action group, so pressing any of the three expands it and compresses
+            // its neighbours. The items carry their own labels now; widths keep the previous
+            // Delete/Cancel/Save emphasis.
+            ButtonGroup(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = EDGE),
+                overflowIndicator = { menuState ->
+                    ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                },
             ) {
-                val deleteBounce = rememberBounceInteractionSource()
-                val cancelBounce = rememberBounceInteractionSource()
-                val saveBounce = rememberBounceInteractionSource()
                 if (onDelete != null) {
-                    FilledTonalButton(
+                    clickableItem(
                         onClick = { onDelete(initial.id); onDismiss() },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        interactionSource = deleteBounce,
-                        modifier = Modifier.weight(1f).height(ROW_H).bounceClick(deleteBounce),
-                    ) {
-                        Icon(Icons.Outlined.Delete, contentDescription = null, Modifier.size(20.dp))
-                    }
+                        label = "Delete",
+                        icon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                        weight = 1f,
+                    )
                 }
-                // Outlined, because discarding is a retreat and should not compete for the eye.
-                OutlinedButton(
+                clickableItem(
                     onClick = { discard = true; onDismiss() },
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    interactionSource = cancelBounce,
-                    modifier = Modifier.weight(1.2f).height(ROW_H).bounceClick(cancelBounce),
-                ) {
-                    Text("Cancel", style = MaterialTheme.typography.labelLargeEmphasized)
-                }
-                Button(
+                    label = "Cancel",
+                    weight = 1.2f,
+                )
+                clickableItem(
                     onClick = { commitAndClose() },
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    interactionSource = saveBounce,
-                    modifier = Modifier.weight(if (onDelete != null) 1.8f else 2.4f).height(ROW_H)
-                        .bounceClick(saveBounce),
-                ) {
-                    Icon(Icons.Rounded.Check, contentDescription = null, Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Save", style = MaterialTheme.typography.labelLargeEmphasized)
-                }
+                    label = "Save",
+                    icon = { Icon(Icons.Rounded.Check, contentDescription = null) },
+                    weight = 1.8f,
+                )
             }
         }
     }
@@ -451,34 +415,27 @@ private fun ringtoneName(uri: String?): String {
 }
 
 /**
- * Seven day toggles.
+ * Seven day toggles, as one official toggle button group.
  *
- * [ToggleButton] is the M3 Expressive control for exactly this case, a persistent on/off whose
- * *shape* changes with state, not only its fill. Its default shape set is the round-to-squircle
- * pair, which is the tactic that makes a selected day readable without relying on colour alone.
+ * The group supplies the connected geometry, the checked shape morph and the press-time
+ * neighbor squish; each day is a toggleable item carrying its own checked state.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DayToggles(order: List<DayOfWeek>, selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = EDGE - 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ButtonGroup(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = EDGE - 4.dp),
+        overflowIndicator = { menuState ->
+            ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+        },
     ) {
         order.forEach { day ->
-            val bounce = rememberBounceInteractionSource()
-            ToggleButton(
+            toggleableItem(
                 checked = day in selected,
+                label = day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
                 onCheckedChange = { onToggle(day) },
-                contentPadding = PaddingValues(0.dp),
-                interactionSource = bounce,
-                modifier = Modifier.weight(1f).height(52.dp).bounceClick(bounce),
-            ) {
-                Text(
-                    day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                    style = MaterialTheme.typography.titleMediumEmphasized,
-                    textAlign = TextAlign.Center,
-                )
-            }
+                weight = 1f,
+            )
         }
     }
 }
