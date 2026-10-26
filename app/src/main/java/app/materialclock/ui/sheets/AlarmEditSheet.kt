@@ -24,8 +24,12 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ButtonGroupScope
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -36,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TimePickerSelectionMode
 import androidx.compose.material3.TimePickerState
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -46,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import app.materialclock.core.Alarm
 import app.materialclock.data.WeekStart
 import app.materialclock.data.order
+import app.materialclock.ui.ButtonWithAnimatedShape
 import app.materialclock.ui.bounceClick
 import app.materialclock.ui.rememberBounceInteractionSource
 import app.materialclock.ui.theme.Numerals
@@ -228,37 +235,98 @@ fun AlarmEditSheet(
             }
 
             Spacer(Modifier.height(18.dp))
-            // One official action group, so pressing any of the three expands it and compresses
-            // its neighbours. The items carry their own labels now; widths keep the previous
-            // Delete/Cancel/Save emphasis.
+            // ButtonGroup's convenience items expose no per-item colours, so the three actions are
+            // custom items. The group still owns the press-to-expand/neighbour-compress animation;
+            // each button keeps its semantic colour, compact padding and a single-line label.
+            val deleteColors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            val cancelColors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            val saveColors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            )
             ButtonGroup(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = EDGE),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 overflowIndicator = { menuState ->
                     ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
                 },
             ) {
                 if (onDelete != null) {
-                    clickableItem(
-                        onClick = { onDelete(initial.id); onDismiss() },
+                    alarmActionItem(
                         label = "Delete",
-                        icon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                        weight = 1f,
-                    )
+                        icon = Icons.Outlined.Delete,
+                        colors = deleteColors,
+                    ) { onDelete(initial.id); onDismiss() }
                 }
-                clickableItem(
-                    onClick = { discard = true; onDismiss() },
+                alarmActionItem(
                     label = "Cancel",
-                    weight = 1.2f,
-                )
-                clickableItem(
-                    onClick = { commitAndClose() },
+                    icon = null,
+                    colors = cancelColors,
+                ) { discard = true; onDismiss() }
+                alarmActionItem(
                     label = "Save",
-                    icon = { Icon(Icons.Rounded.Check, contentDescription = null) },
-                    weight = 1.8f,
-                )
+                    icon = Icons.Rounded.Check,
+                    colors = saveColors,
+                ) { commitAndClose() }
             }
         }
     }
+}
+
+/**
+ * A coloured member of the alarm action group.
+ *
+ * `clickableItem` cannot carry colours or content padding, so this is the documented
+ * [ButtonGroupScope.customItem] path. `Modifier.animateWidth` is what opts the custom item into the
+ * group's press-to-expand / neighbour-compress animation; the compact padding and single-line label
+ * keep "Delete" and "Cancel" from clipping.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun ButtonGroupScope.alarmActionItem(
+    label: String,
+    icon: ImageVector?,
+    colors: ButtonColors,
+    onClick: () -> Unit,
+) {
+    val group = this
+    val contentPadding = PaddingValues(horizontal = 10.dp)
+    customItem(
+        buttonGroupContent = {
+            val interaction = rememberBounceInteractionSource()
+            with(group) {
+                ButtonWithAnimatedShape(
+                    onClick = onClick,
+                    interactionSource = interaction,
+                    colors = colors,
+                    contentPadding = contentPadding,
+                    modifier = Modifier
+                        .animateWidth(
+                            interactionSource = interaction,
+                            compressionLimit = 10.dp,
+                        )
+                        .height(56.dp),
+                ) {
+                    if (icon != null) {
+                        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(label, maxLines = 1, softWrap = false)
+                }
+            }
+        },
+        menuContent = {
+            DropdownMenuItem(
+                text = { Text(label) },
+                onClick = onClick,
+            )
+        },
+    )
 }
 
 /**
@@ -415,27 +483,43 @@ private fun ringtoneName(uri: String?): String {
 }
 
 /**
- * Seven day toggles, as one official toggle button group.
+ * Seven day toggles in a row.
  *
- * The group supplies the connected geometry, the checked shape morph and the press-time
- * neighbor squish; each day is a toggleable item carrying its own checked state.
+ * Deliberately not a [ButtonGroup]: seven weighted group items compress to less than a glyph's
+ * width on a phone, which is what clipped "M"/"T"/"W". The row keeps the expressive connected
+ * `ToggleButton` shapes (leading/middle/trailing) and the per-button shape morph, but gives each
+ * day an equal share of the width with zero content padding and a single, non-wrapping label.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DayToggles(order: List<DayOfWeek>, selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Unit) {
-    ButtonGroup(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = EDGE - 4.dp),
-        overflowIndicator = { menuState ->
-            ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
-        },
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = EDGE - 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        order.forEach { day ->
-            toggleableItem(
+        order.forEachIndexed { index, day ->
+            val bounce = rememberBounceInteractionSource()
+            val shapes = when (index) {
+                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                order.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+            }
+            ToggleButton(
                 checked = day in selected,
-                label = day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
                 onCheckedChange = { onToggle(day) },
-                weight = 1f,
-            )
+                shapes = shapes,
+                contentPadding = PaddingValues(0.dp),
+                interactionSource = bounce,
+                modifier = Modifier.weight(1f).height(48.dp).bounceClick(bounce),
+            ) {
+                Text(
+                    text = day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
