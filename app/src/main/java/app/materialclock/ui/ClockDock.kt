@@ -223,8 +223,8 @@ private fun PlusButton(visible: Boolean, label: String, onClick: () -> Unit) {
             FloatingActionButton(
                 onClick = onClick,
                 interactionSource = bounce,
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 // 32 dp on a 64 dp button is a circle; 22 dp is the resting squircle.
                 shape = RoundedCornerShape(lerp(FAB_SIZE / 2, FAB_CORNER, grow)),
                 modifier = Modifier

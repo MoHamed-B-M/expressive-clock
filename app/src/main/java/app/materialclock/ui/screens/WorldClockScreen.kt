@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import app.materialclock.data.HourFormat
 import app.materialclock.data.WorldClockSettings
 import androidx.compose.ui.Alignment
@@ -92,9 +95,15 @@ fun WorldClockScreen(
         HourFormat.H24 -> true
     }
     val measurer = rememberTextMeasurer()
+    val ld = LocalLayoutDirection.current
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = contentPadding,
+        contentPadding = PaddingValues(
+            top = contentPadding.calculateTopPadding(),
+            bottom = contentPadding.calculateBottomPadding() + 100.dp,
+            start = contentPadding.calculateStartPadding(ld),
+            end = contentPadding.calculateEndPadding(ld)
+        ),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         item {
