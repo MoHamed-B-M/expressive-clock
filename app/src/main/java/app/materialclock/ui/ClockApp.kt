@@ -85,7 +85,7 @@ private val DOCK_RESERVE = DOCK_HEIGHT + DOCK_CLEARANCE + 12.dp
 
 enum class Tab(val label: String, val icon: ImageVector, val key: String) {
     ALARMS("Alarms", Icons.Outlined.Alarm, Notifications.TAB_ALARMS),
-    WORLD("World Clock", Icons.Outlined.Public, "world"),
+    WORLD("WClock", Icons.Outlined.Public, "world"),
     TIMERS("Timers", Icons.Outlined.HourglassEmpty, Notifications.TAB_TIMERS),
     STOPWATCH("Stopwatch", Icons.Outlined.Timer, Notifications.TAB_STOPWATCH),
 }

@@ -97,32 +97,38 @@ fun ClockDock(
         // In dark mode `PrimaryContainer` resolves to a mid slate: too dark to read as lit, too
         // light to read as glass, and muddy beside the accent-filled tiles it floats over. So the
         // mode picks the set, rather than one set being used for both.
-        HorizontalFloatingToolbar(
-            expanded = true,
-            colors = if (dark) {
-                // `SurfaceContainer` is the token, but it is only two tones above the page and this
-                // app's dark page is near-black, so the pill disappeared into it. Since this is the
-                // highest thing on the screen, at 6 dp, the role that matches is
-                // `surfaceContainerHighest`, passed through the API's own override rather than
-                // mixed by hand.
-                FloatingToolbarDefaults.standardFloatingToolbarColors(
-                    toolbarContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                FloatingToolbarDefaults.vibrantFloatingToolbarColors()
-            },
-            // The no-FAB overload defaults both elevations to Level0, and a flat vibrant pill over
-            // a wall of coral tiles has nothing separating it from what it floats above.
-            expandedShadowElevation = 6.dp,
-            collapsedShadowElevation = 6.dp,
-            modifier = Modifier.selectableGroup().height(DOCK_HEIGHT),
+        Row(
+            modifier = Modifier.weight(1f, fill = false),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            destinations.forEach { d ->
-                DockItem(tab = d, selected = d == selected, dark = dark, onClick = { onSelect(d) })
+            HorizontalFloatingToolbar(
+                expanded = true,
+                colors = if (dark) {
+                    // `SurfaceContainer` is the token, but it is only two tones above the page and this
+                    // app's dark page is near-black, so the pill disappeared into it. Since this is the
+                    // highest thing on the screen, at 6 dp, the role that matches is
+                    // `surfaceContainerHighest`, passed through the API's own override rather than
+                    // mixed by hand.
+                    FloatingToolbarDefaults.standardFloatingToolbarColors(
+                        toolbarContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    FloatingToolbarDefaults.vibrantFloatingToolbarColors()
+                },
+                // The no-FAB overload defaults both elevations to Level0, and a flat vibrant pill over
+                // a wall of coral tiles has nothing separating it from what it floats above.
+                expandedShadowElevation = 6.dp,
+                collapsedShadowElevation = 6.dp,
+                modifier = Modifier.selectableGroup().height(DOCK_HEIGHT),
+            ) {
+                destinations.forEach { d ->
+                    DockItem(tab = d, selected = d == selected, dark = dark, onClick = { onSelect(d) })
+                }
             }
+            PlusButton(visible = showAdd, label = addLabel, onClick = onAdd)
         }
-        PlusButton(visible = showAdd, label = addLabel, onClick = onAdd)
     }
 }
 

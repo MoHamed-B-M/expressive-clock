@@ -100,7 +100,7 @@ fun WorldClockScreen(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding(),
-            bottom = contentPadding.calculateBottomPadding() + 100.dp,
+            bottom = contentPadding.calculateBottomPadding() + 120.dp,
             start = contentPadding.calculateStartPadding(ld),
             end = contentPadding.calculateEndPadding(ld)
         ),
