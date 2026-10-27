@@ -1,15 +1,21 @@
 package app.materialclock.ui
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.delay
 
 /**
  * M3 Expressive press feedback: the control shrinks while held and springs back with one visible
@@ -20,11 +26,16 @@ import androidx.compose.ui.graphics.graphicsLayer
  * A `Modifier` cannot observe the press stream of a Material button it is attached to: the button
  * owns its own `clickable`. Passing one [MutableInteractionSource] to both the button's
  * `interactionSource` parameter and to [bounceClick] makes the real press state the only animation
- * input, with no second gesture detector competing for the click. For button-like surfaces built
- * from `Surface(onClick = ...)`, the same source goes to `Surface`'s `interactionSource`.
+ * input, shared between the visual bounce, animated container shapes, and connected button groups.
  *
- * Only `graphicsLayer` is added, so the component keeps its ripple and its layout size; the scale is
- * visual, not a hit-test change.
+ * ## Immediate touch-down gesture response
+ *
+ * Standard clickables delay emitting [PressInteraction.Press] until a tap-timeout window expires
+ * in order to disambiguate scrolls from clicks. To ensure animations (bounce scale, ButtonWithAnimatedShape
+ * shape morph, and ButtonGroup neighbor squish) trigger instantly when a finger touches down, this
+ * modifier attaches a low-level [pointerInput] detector using [awaitFirstDown] (`requireUnconsumed = false`).
+ * It emits [PressInteraction.Press] immediately on touch down into [interactionSource] and releases or
+ * cancels it on lift without consuming pointer events or interfering with high-level click handling.
  */
 @Composable
 fun rememberBounceInteractionSource(): MutableInteractionSource =
@@ -33,29 +44,69 @@ fun rememberBounceInteractionSource(): MutableInteractionSource =
 /**
  * The bounce itself.
  *
- * 0.45 damping is under-damped enough to overshoot once on release without ringing; stiffness 900
- * gets the press down and the rebound finished in roughly the time an Expressive press lasts. The
- * 0.001 visibility threshold lets the spring settle fully before it is considered idle.
- *
- * `composed` keeps the animation's state inside the modifier's own small composition, so a press
- * does not recompose the button's content; [graphicsLayer] keeps the work on the render layer.
+ * Uses [Animatable] with [LaunchedEffect] to ensure the press animation triggers immediately on
+ * touch-down and has enough time to be visible even for quick taps.
  */
 fun Modifier.bounceClick(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.9f,
+    enabled: Boolean = true,
 ): Modifier = composed {
     val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) pressedScale else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.45f,
-            stiffness = 900f,
-            visibilityThreshold = 0.001f,
-        ),
-        label = "bounceClickScale",
-    )
-    graphicsLayer {
-        scaleX = scale
-        scaleY = scale
+    val scale = remember { Animatable(1f) }
+
+    LaunchedEffect(pressed, enabled) {
+        if (pressed && enabled) {
+            scale.snapTo(1f)
+            scale.animateTo(
+                targetValue = pressedScale,
+                animationSpec = spring(
+                    dampingRatio = 0.45f,
+                    stiffness = 900f,
+                ),
+            )
+        } else if (enabled) {
+            // Add a small delay to ensure quick taps are visible
+            delay(40)
+            scale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.45f,
+                    stiffness = 900f,
+                ),
+            )
+        } else {
+            scale.snapTo(1f)
+        }
     }
+
+    if (!enabled) {
+        return@composed this
+    }
+    this
+        .graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        }
+        .pointerInput(interactionSource) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val press = PressInteraction.Press(down.position)
+                var released = false
+                try {
+                    interactionSource.tryEmit(press)
+                    val upOrCancel = waitForUpOrCancellation()
+                    released = true
+                    if (upOrCancel != null) {
+                        interactionSource.tryEmit(PressInteraction.Release(press))
+                    } else {
+                        interactionSource.tryEmit(PressInteraction.Cancel(press))
+                    }
+                } finally {
+                    if (!released) {
+                        interactionSource.tryEmit(PressInteraction.Cancel(press))
+                    }
+                }
+            }
+        }
 }
